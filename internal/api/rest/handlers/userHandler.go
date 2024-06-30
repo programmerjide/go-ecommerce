@@ -23,39 +23,44 @@ func SetupUserRoutes(rh *rest.RestHandler) {
 	// create an instance of user service & inject to handler
 	svc := service.UserService{
 		Repo: repository.NewUserRepository(rh.DB),
+		Auth: rh.Auth,
 	}
 
 	handler := UserHandler{
 		svc: svc,
 	}
 
+	publicRoutes := app.Group("api/v1/users")
+
 	// Public endpoints
-	app.Post("/register", handler.Register)
-	app.Post("/login", handler.Login)
+	publicRoutes.Post("/register", handler.Register)
+	publicRoutes.Post("/login", handler.Login)
+
+	privateRoutes := publicRoutes.Group("/", rh.Auth.Authorize)
 
 	// Private endpoints
-	app.Get("/verify", handler.GetVerificationCode)
-	app.Post("/verify", handler.Verify)
-	app.Post("/profile", handler.CreateProfile)
-	app.Get("/profile/:id", handler.GetProfile)
+	privateRoutes.Get("/verify", handler.GetVerificationCode)
+	privateRoutes.Post("/verify", handler.Verify)
+	privateRoutes.Post("/profile", handler.CreateProfile)
+	privateRoutes.Get("/profile/:id", handler.GetProfile)
 
-	app.Post("/cart", handler.AddToCart)
-	app.Get("/cart", handler.GetCart)
-	app.Post("/order", handler.CreateOrder)
-	app.Post("/order/:id", handler.GetOrder)
-	app.Get("/orders", handler.GetOrders)
+	privateRoutes.Post("/cart", handler.AddToCart)
+	privateRoutes.Get("/cart", handler.GetCart)
+	privateRoutes.Post("/order", handler.CreateOrder)
+	privateRoutes.Post("/order/:id", handler.GetOrder)
+	privateRoutes.Get("/orders", handler.GetOrders)
 
-	app.Post("/order/:id", handler.BecomeSeller)
+	privateRoutes.Post("/order/:id", handler.BecomeSeller)
 
 }
 
 func (h *UserHandler) Register(ctx *fiber.Ctx) error {
-	user := dto.UserSignupRequestDTO{}
+	user := dto.UserSignupRequestDto{}
 	if err := ctx.BodyParser(&user); err != nil {
 		return helper.RespondWithError(ctx, http.StatusBadRequest, config.INVALID_PAYLOAD.Code, config.INVALID_PAYLOAD.Description)
 	}
 
-	token, err := h.svc.Signup(user)
+	signupResponseData, err := h.svc.Signup(user)
 	if err != nil {
 		return helper.RespondWithError(ctx, http.StatusBadRequest, config.FAILED.Code, "Error occurred while processing the request")
 	}
@@ -63,8 +68,8 @@ func (h *UserHandler) Register(ctx *fiber.Ctx) error {
 	response := dto.DefaultApiResponse{
 		BaseResponse: dto.BaseResponse[any]{
 			Status:  config.SUCCESS.Code,
-			Message: token,
-			Data:    nil,
+			Message: config.SUCCESS.Description,
+			Data:    signupResponseData,
 		},
 	}
 	return ctx.Status(http.StatusOK).JSON(response)
@@ -72,11 +77,26 @@ func (h *UserHandler) Register(ctx *fiber.Ctx) error {
 
 func (h *UserHandler) Login(ctx *fiber.Ctx) error {
 
+	loginDto := dto.UserLoginDto{}
+	if err := ctx.BodyParser(&loginDto); err != nil {
+		return helper.RespondWithError(ctx, http.StatusBadRequest, config.INVALID_PAYLOAD.Code, config.INVALID_PAYLOAD.Description)
+	}
+
+	token, err := h.svc.Login(loginDto.Email, loginDto.Password)
+	if err != nil {
+		return helper.RespondWithError(ctx, http.StatusBadRequest, config.FAILED.Code, "Invalid credentials")
+	}
+
+	loginResponseData := dto.LoginResponseData{
+		AccessToken:  token,
+		RefreshToken: "",
+	}
+
 	response := dto.DefaultApiResponse{
 		BaseResponse: dto.BaseResponse[any]{
 			Status:  config.SUCCESS.Code,
 			Message: config.SUCCESS.Description,
-			Data:    nil,
+			Data:    loginResponseData,
 		},
 	}
 	return ctx.Status(http.StatusOK).JSON(response)
