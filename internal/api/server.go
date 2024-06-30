@@ -7,6 +7,7 @@ import (
 	"github.com/programmerolajide/go-ecommerce/internal/api/rest"
 	"github.com/programmerolajide/go-ecommerce/internal/api/rest/handlers"
 	"github.com/programmerolajide/go-ecommerce/internal/domain"
+	"github.com/programmerolajide/go-ecommerce/internal/helper"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 )
@@ -23,9 +24,12 @@ func StartServer(config config.AppConfig) {
 	// run migration
 	db.AutoMigrate(&domain.User{})
 
+	auth := helper.SetupAuth(config.AppSecret)
+
 	restHandler := &rest.RestHandler{
-		App: app,
-		DB:  db,
+		App:  app,
+		DB:   db,
+		Auth: auth,
 	}
 
 	setupRoutes(restHandler)

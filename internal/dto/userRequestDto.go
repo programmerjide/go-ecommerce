@@ -1,11 +1,11 @@
 package dto
 
-type UserLogin struct {
+type UserLoginDto struct {
 	Email    string `json:"email"`
 	Password string `json:"password"`
 }
 
-type UserSignupRequestDTO struct {
-	UserLogin
+type UserSignupRequestDto struct {
+	UserLoginDto
 	Phone string `json:"phone"`
 }

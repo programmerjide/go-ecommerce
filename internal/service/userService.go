@@ -1,41 +1,64 @@
 package service
 
 import (
-	"fmt"
+	"errors"
 	"github.com/programmerolajide/go-ecommerce/internal/domain"
 	"github.com/programmerolajide/go-ecommerce/internal/dto"
+	"github.com/programmerolajide/go-ecommerce/internal/helper"
 	"github.com/programmerolajide/go-ecommerce/internal/repository"
 	"log"
 )
 
 type UserService struct {
 	Repo repository.UserRepository
+	Auth helper.Auth
 }
 
-func (us UserService) Signup(createUserRequestDTO dto.UserSignupRequestDTO) (string, error) {
+func (us UserService) Signup(createUserRequestDTO dto.UserSignupRequestDto) (dto.SignupResponseData, error) {
 	log.Printf("User signup with email: %v", createUserRequestDTO.Email)
+
+	hashPassword, err := us.Auth.CreateHashedPassword(createUserRequestDTO.Password)
+	if err != nil {
+		return dto.SignupResponseData{}, err
+	}
 
 	user, err := us.Repo.CreateUser(domain.User{
 		Email:    createUserRequestDTO.Email,
-		Password: createUserRequestDTO.Password,
+		Password: hashPassword,
 		Phone:    createUserRequestDTO.Phone,
 	})
+	if err != nil {
+		return dto.SignupResponseData{}, err
+	}
 
-	// generate token
+	signResponseData := dto.SignupResponseData{
+		Id:    user.ID,
+		Email: user.Email,
+	}
 
-	userInfo := fmt.Sprintf("%v, %v, %v", user.ID, user.Email, user.UserType)
-
-	return userInfo, err
+	return signResponseData, nil
 }
 
 func (us UserService) findUserByEmail(email string) (*domain.User, error) {
 	// perform db  operation
-	return nil, nil
+	user, err := us.Repo.FindUser(email)
+	return &user, err
 }
 
-func (us UserService) Login(input any) (string, error) {
+func (us UserService) Login(email string, password string) (string, error) {
 
-	return "", nil
+	user, err := us.findUserByEmail(email)
+	if err != nil {
+		return "", errors.New("user does not exist with email")
+	}
+
+	err = us.Auth.VerifyPassword(password, user.Password)
+	if err != nil {
+		return "", err
+	}
+
+	// generate token
+	return us.Auth.GenerateAccessToken(user.ID, user.Email, user.UserType)
 }
 
 func (us UserService) GetVerificationCode(e domain.User) (int, error) {
