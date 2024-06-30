@@ -45,9 +45,10 @@ type ResponseCode struct {
 }
 
 var (
-	SUCCESS = ResponseCode{"00", "Approved or completed successfully"}
-	FAILED  = ResponseCode{"99", "Failed to process request"}
-	UNKNOWN = ResponseCode{"01", "Status unknown, please wait for settlement report"}
+	SUCCESS         = ResponseCode{"00", "Approved or completed successfully"}
+	FAILED          = ResponseCode{"99", "Failed to process request"}
+	UNKNOWN         = ResponseCode{"01", "Status unknown, please wait for settlement report"}
+	INVALID_PAYLOAD = ResponseCode{"02", "Invalid payload passed!"}
 )
 
 func GetResponseCodeByCode(value string) (ResponseCode, error) {
@@ -56,7 +57,7 @@ func GetResponseCodeByCode(value string) (ResponseCode, error) {
 	}
 
 	codes := []ResponseCode{
-		SUCCESS, FAILED, UNKNOWN,
+		SUCCESS, FAILED, UNKNOWN, INVALID_PAYLOAD,
 	}
 
 	for _, code := range codes {
