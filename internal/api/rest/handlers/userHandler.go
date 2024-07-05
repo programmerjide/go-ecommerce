@@ -8,6 +8,7 @@ import (
 	"github.com/programmerolajide/go-ecommerce/internal/helper"
 	"github.com/programmerolajide/go-ecommerce/internal/repository"
 	"github.com/programmerolajide/go-ecommerce/internal/service"
+	"log"
 	"net/http"
 )
 
@@ -42,7 +43,7 @@ func SetupUserRoutes(rh *rest.RestHandler) {
 	privateRoutes.Get("/verify", handler.GetVerificationCode)
 	privateRoutes.Post("/verify", handler.Verify)
 	privateRoutes.Post("/profile", handler.CreateProfile)
-	privateRoutes.Get("/profile/:id", handler.GetProfile)
+	privateRoutes.Get("/profile", handler.GetProfile)
 
 	privateRoutes.Post("/cart", handler.AddToCart)
 	privateRoutes.Get("/cart", handler.GetCart)
@@ -103,12 +104,22 @@ func (h *UserHandler) Login(ctx *fiber.Ctx) error {
 }
 
 func (h *UserHandler) GetVerificationCode(ctx *fiber.Ctx) error {
+	user := h.svc.Auth.GetCurrentUser(ctx)
+
+	// create verification code and update to user profile in DB
+	code, err := h.svc.GetVerificationCode(user)
+	if err != nil {
+		log.Printf("Error generating verification code: %v", err)
+		return helper.RespondWithError(ctx, http.StatusBadRequest, config.FAILED.Code, "Error generating verification code")
+	}
 
 	response := dto.DefaultApiResponse{
 		BaseResponse: dto.BaseResponse[any]{
 			Status:  config.SUCCESS.Code,
-			Message: config.SUCCESS.Description,
-			Data:    nil,
+			Message: "Verification code generated successfully",
+			Data: dto.VerificationCodeData{
+				VerificationCode: code,
+			},
 		},
 	}
 	return ctx.Status(http.StatusOK).JSON(response)
@@ -116,10 +127,27 @@ func (h *UserHandler) GetVerificationCode(ctx *fiber.Ctx) error {
 
 func (h *UserHandler) Verify(ctx *fiber.Ctx) error {
 
+	user := h.svc.Auth.GetCurrentUser(ctx)
+
+	var req dto.VerificationCodeInput
+
+	if err := ctx.BodyParser(&req); err != nil {
+		return ctx.Status(http.StatusBadRequest).JSON(&fiber.Map{
+			"message": "please provide a valid verification code",
+		})
+	}
+
+	err := h.svc.VerifyCode(user.ID, req.Code)
+	if err != nil {
+		return ctx.Status(http.StatusBadRequest).JSON(&fiber.Map{
+			"message": err.Error(),
+		})
+	}
+
 	response := dto.DefaultApiResponse{
 		BaseResponse: dto.BaseResponse[any]{
 			Status:  config.SUCCESS.Code,
-			Message: config.SUCCESS.Description,
+			Message: "User verified successfully",
 			Data:    nil,
 		},
 	}
@@ -140,11 +168,13 @@ func (h *UserHandler) CreateProfile(ctx *fiber.Ctx) error {
 
 func (h *UserHandler) GetProfile(ctx *fiber.Ctx) error {
 
+	user := h.svc.Auth.GetCurrentUser(ctx)
+
 	response := dto.DefaultApiResponse{
 		BaseResponse: dto.BaseResponse[any]{
 			Status:  config.SUCCESS.Code,
-			Message: config.SUCCESS.Description,
-			Data:    nil,
+			Message: "user profile retrieved successfully",
+			Data:    user,
 		},
 	}
 	return ctx.Status(http.StatusOK).JSON(response)
