@@ -79,21 +79,20 @@ func (a Auth) VerifyPassword(password string, hashPassword string) error {
 }
 
 func (a Auth) VerifyAccessToken(token string) (domain.User, error) {
-
-	tokenArr := strings.Split(token, "")
+	tokenArr := strings.Split(token, " ")
 	if len(tokenArr) != 2 {
-		return domain.User{}, nil
+		return domain.User{}, errors.New("invalid token format")
+	}
+
+	if tokenArr[0] != "Bearer" {
+		return domain.User{}, errors.New("invalid token prefix")
 	}
 
 	tokenStr := tokenArr[1]
 
-	if tokenArr[0] != "Bearer" {
-		return domain.User{}, errors.New("invalid token")
-	}
-
 	t, err := jwt.Parse(tokenStr, func(t *jwt.Token) (interface{}, error) {
 		if _, ok := t.Method.(*jwt.SigningMethodHMAC); !ok {
-			return nil, fmt.Errorf("uknown signing method %v", t.Header)
+			return nil, fmt.Errorf("unknown signing method %v", t.Header)
 		}
 		return []byte(a.Secret), nil
 	})
@@ -103,20 +102,19 @@ func (a Auth) VerifyAccessToken(token string) (domain.User, error) {
 	}
 
 	if claims, ok := t.Claims.(jwt.MapClaims); ok && t.Valid {
-
 		if float64(time.Now().Unix()) > claims["exp"].(float64) {
 			return domain.User{}, errors.New("token is expired")
 		}
 
-		user := domain.User{}
-		user.ID = uint(claims["user_id"].(float64))
-		user.Email = claims["email"].(string)
-		user.UserType = claims["role"].(string)
+		user := domain.User{
+			ID:       uint(claims["user_id"].(float64)),
+			Email:    claims["email"].(string),
+			UserType: claims["role"].(string),
+		}
 		return user, nil
 	}
 
 	return domain.User{}, errors.New("token verification failed")
-
 }
 
 func (a Auth) Authorize(ctx *fiber.Ctx) error {
@@ -138,8 +136,10 @@ func (a Auth) Authorize(ctx *fiber.Ctx) error {
 }
 
 func (a Auth) GetCurrentUser(ctx *fiber.Ctx) domain.User {
-
 	user := ctx.Locals("user")
-
 	return user.(domain.User)
+}
+
+func (a Auth) GenerateCode() (int, error) {
+	return utils.RandomNumbers(6)
 }

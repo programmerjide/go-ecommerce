@@ -12,7 +12,7 @@ type UserRepository interface {
 	CreateUser(u domain.User) (domain.User, error)
 	FindUser(email string) (domain.User, error)
 	FindUserById(id uint) (domain.User, error)
-	updateUser(id uint, u domain.User) (domain.User, error)
+	UpdateUser(id uint, u domain.User) (domain.User, error)
 }
 
 type userRepository struct {
@@ -64,16 +64,16 @@ func (r userRepository) FindUserById(id uint) (domain.User, error) {
 	return user, nil
 }
 
-func (r userRepository) updateUser(id uint, user domain.User) (domain.User, error) {
+func (r userRepository) UpdateUser(id uint, u domain.User) (domain.User, error) {
 
-	var updatedUser domain.User
+	var user domain.User
 
-	err := r.db.Model(&updatedUser).Clauses(clause.Returning{}).Where("id=?", id).Updates(user).Error
+	err := r.db.Model(&user).Clauses(clause.Returning{}).Where("id=?", id).Updates(u).Error
 
 	if err != nil {
-		log.Printf(" Error occurred while finding user %v", err)
-		return domain.User{}, errors.New("updating user failed, try again")
+		log.Printf("error on update %v", err)
+		return domain.User{}, errors.New("failed update user")
 	}
 
-	return updatedUser, nil
+	return user, nil
 }
